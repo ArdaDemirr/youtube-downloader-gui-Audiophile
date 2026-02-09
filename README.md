@@ -81,3 +81,8 @@ Mutagen: Industry-standard ID3 tagging.
 This project is for educational purposes only. Please respect copyright laws and YouTube's Terms of Service. Do not download copyrighted content without permission.
 
 Author: Arda Demir Build: V2.0 (Feb 2026)
+
+<img width="622" height="666" alt="dark" src="https://github.com/user-attachments/assets/20af9d0a-7a6d-4b93-b572-e749390f7eaa" />
+
+<img width="625" height="665" alt="light" src="https://github.com/user-attachments/assets/b9ff0ae6-9e24-4449-9638-590d44b9e4f2" />
+
