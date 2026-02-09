@@ -33,12 +33,12 @@ playlist Support: Download full playlists or select specific intervals (e.g., So
 
 2. Clone the Repository
    Bash
-   git clone https://github.com/ArdaDemir/Audiophile.git
+   git clone https://github.com/ArdaDemirr/youtube-downloader-gui-Audiophile.git
    cd Audiophile
-3. Install Dependencies
+4. Install Dependencies
    Bash
    pip install -r requirements.txt
-4. Install FFmpeg (Important!)
+5. Install FFmpeg (Important!)
    Because FFmpeg is too large to host on GitHub, you must add it manually:
 
 Download ffmpeg-release-essentials.zip from gyan.dev.
