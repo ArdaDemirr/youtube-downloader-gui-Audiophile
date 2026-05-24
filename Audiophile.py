@@ -1,5 +1,5 @@
 # Author: Arda Demir
-# Build Date: 08/02/2026
+# Build Date: 24/05/2026
 
 import customtkinter
 from customtkinter import CTkToplevel
@@ -16,7 +16,6 @@ import time
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TYER, TDRC, APIC, TCON, TPUB, TSRC, WXXX, COMM
 from mutagen.mp3 import MP3
 import requests
-import json
 
 # --- Helper Functions ---
 def resource_path(relative_path):
@@ -263,7 +262,7 @@ async def process_metadata(file_path, save_dir):
         # --- 1. SCAN (Shazam) ---
         shazam = Shazam()
         #log_message(f"Identifying: {os.path.basename(file_path)}...")
-        out = await shazam.recognize_song(file_path)
+        out = await shazam.recognize(file_path)
         
         # --- 2. SAVE RAW JSON (Temporary Name) ---
         # We save it with the original filename first to ensure we have the data
@@ -340,7 +339,7 @@ async def process_metadata(file_path, save_dir):
                     log_message(f"Art Error: {e}")
             
             audio.save()
-            log_message(f"Metadata Completed: {base_name}")
+            #log_message(f"Metadata Completed: {base_name}")
             
         except Exception as e:
             log_message(f"Tagging Failed: {e}")
@@ -381,19 +380,46 @@ async def process_metadata(file_path, save_dir):
 def run_download_process(link, path, fmt, use_metadata, auto_check, interval_on, start_idx, end_idx):
     global is_downloading, should_cancel
     
+    # --- GLOBAL PROGRESS TRACKERS ---
+    current_track_index = 0
+    total_tasks_count = 1
+
+    def progress_hook(d):
+        nonlocal current_track_index, total_tasks_count
+        
+        if should_cancel:
+            raise Exception("Download cancelled by user.")
+
+        if d['status'] == 'downloading':
+            total = d.get('total_bytes') or d.get('total_bytes_estimate')
+            downloaded = d.get('downloaded_bytes', 0)
+                
+            if total:
+                song_fraction = downloaded / total
+                global_percent = (current_track_index + song_fraction) / total_tasks_count
+                app.after(0, lambda p=global_percent: progressbar.set(p))
+                    
+        elif d['status'] == 'finished':
+            global_percent = (current_track_index + 1) / total_tasks_count
+            app.after(0, lambda p=global_percent: progressbar.set(p))
+
     try:
         if not os.path.exists(path): os.makedirs(path)
         
-        ffmpeg_local = os.path.join(os.getcwd(), 'ffmpeg.exe')
-        history_file = os.path.join(path, "download_history.txt") # The Manual History File
+        ffmpeg_local = resource_path('ffmpeg.exe')
+        history_file = os.path.join(path, "download_history.txt") 
         
+        # --- FAST DOWNLOAD SETTINGS ---
         base_opts = {
-            'outtmpl': f'{path}/%(title)s.%(ext)s',
+            'outtmpl': os.path.join(path, '%(title)s.%(ext)s'),
             'ignoreerrors': True,
             'quiet': True,
             'noprogress': True,
-            'concurrent_fragment_downloads': 5, # Speed Boost
+            'concurrent_fragment_downloads': 8,
             'http_chunk_size': 10485760,
+            'buffersize': 1024, 
+            'restrictfilenames': True,
+            'progress_hooks': [progress_hook]
         }
 
         if os.path.exists(ffmpeg_local):
@@ -407,7 +433,7 @@ def run_download_process(link, path, fmt, use_metadata, auto_check, interval_on,
         else:
             base_opts.update({'format': 'bestvideo+bestaudio/best'})
 
-        # --- 1. LOAD HISTORY (Manual Check) ---
+        # --- 1. LOAD HISTORY ---
         downloaded_ids = set()
         if auto_check and os.path.exists(history_file):
             try:
@@ -415,139 +441,127 @@ def run_download_process(link, path, fmt, use_metadata, auto_check, interval_on,
                     downloaded_ids = set(line.strip() for line in f if line.strip())
             except: pass
 
-        # --- 2. DETECT MODE ---
-        is_playlist_mode = "playlist" in link
+        # --- 2. FETCH YOUTUBE LIST ---
+        entries_to_download = []
         scanner_opts = base_opts.copy()
         
-        # We handle history manually, so we don't use yt-dlp's internal archive
-        if 'download_archive' in scanner_opts: del scanner_opts['download_archive']
-
-        if is_playlist_mode:
-            log_message("Scanning Playlist...")
+        if "playlist" in link:
+            log_message("Scanning YouTube Playlist...")
             scanner_opts['extract_flat'] = 'in_playlist'
+        elif "http" not in link:
+            log_message(f"Searching YouTube for: {link}...")
+            link = f"ytsearch1:{link}"
+            scanner_opts['noplaylist'] = True
         else:
-            log_message("Downloading Video...")
-            scanner_opts['noplaylist'] = True 
-
-        if should_cancel: raise Exception("Cancelled")
-
-        entries_to_download = []
+            log_message("Processing YouTube Video...")
+            scanner_opts['noplaylist'] = True
 
         with yt_dlp.YoutubeDL(scanner_opts) as ydl:
             info = ydl.extract_info(link, download=False)
-            
-            if is_playlist_mode and 'entries' in info:
-                all_entries = list(info['entries'])
-                total_found = len(all_entries)
-                log_message(f"Playlist Found: {total_found} videos.")
-                
-                if interval_on:
-                    try:
-                        s = int(start_idx) - 1 if start_idx else 0
-                        e = int(end_idx) if end_idx else total_found
-                        s = max(0, s); e = min(total_found, e)
-                        entries_to_download = all_entries[s:e]
-                        log_message(f"Interval Selected: {s+1} to {e}")
-                    except ValueError:
-                        entries_to_download = all_entries
-                else:
-                    entries_to_download = all_entries
+            if 'entries' in info:
+                entries_to_download = list(info['entries'])
             else:
                 entries_to_download = [info]
 
-        # --- 3. FILTER QUEUE (The Check) ---
-        final_queue = []
-        for entry in entries_to_download:
-            vid_id = entry.get('id')
-            title = entry.get('title', 'Unknown')
-            
-            # If AutoCheck is ON and ID is in history, skip completely
-            if auto_check and vid_id and vid_id in downloaded_ids:
-                log_message(f"Skipping (History): {title}")
-                continue 
-            
-            final_queue.append(entry)
+        # --- 3. APPLY INTERVAL ---
+        total_found = len(entries_to_download)
+        
+        if interval_on:
+            try:
+                s = int(start_idx) - 1
+                e = int(end_idx)
+                if s < 0: s = 0
+                if e > total_found: e = total_found
+                if s >= e: raise ValueError
+                
+                entries_to_download = entries_to_download[s:e]
+                log_message(f"Interval Applied: {s+1} to {e}")
+            except:
+                log_message("Error: Invalid Interval. Downloading all.")
 
         # --- 4. DOWNLOAD LOOP ---
-        total_tasks = len(final_queue)
-        if total_tasks == 0 and len(entries_to_download) > 0:
-            log_message("All items skipped (Already in history).")
-        else:
-            log_message(f"Downloading {total_tasks} new item(s)...\n--------------------------------------------------")
-
-        dl_opts = base_opts.copy()
+        total_tasks = len(entries_to_download)
+        total_tasks_count = total_tasks if total_tasks > 0 else 1
         
-        # --- THE SPEED FIX ---
-        # We force 'noplaylist' to True here because we are iterating 1-by-1.
-        # This prevents yt-dlp from re-scanning the whole playlist for every song.
-        dl_opts['noplaylist'] = True 
+        if total_tasks == 0:
+            log_message("No items to download.")
+        else:
+            log_message(f"Queue: {total_tasks} items.\n" + "-"*40)
 
-        for i, entry in enumerate(final_queue):
-            if should_cancel: 
-                log_message("Queue stopped.")
-                break
+        newly_downloaded_paths = []
 
-            url = entry.get('url') or entry.get('webpage_url')
-            vid_id = entry.get('id')
-            title = entry.get('title', 'Unknown Video')
+        for i, entry in enumerate(entries_to_download):
+            current_track_index = i
+            if should_cancel: break
+
+            if entry.get('is_search'):
+                dl_url = f"ytsearch1:{entry.get('title')}"
+                display_name = entry.get('title')
+            else:
+                dl_url = entry.get('webpage_url') or entry.get('original_url') or entry.get('url')
+                display_name = entry.get('title', 'Unknown')
+                
+                if auto_check and entry.get('id') in downloaded_ids:
+                    continue
             
-            if not url: continue
+            if not dl_url: continue
             
-            if total_tasks > 0: update_progress((i + 1) / total_tasks)
-            log_message(f"[{i+1}/{total_tasks}] Downloading: {title}")
+            log_message(f"[{i+1}/{total_tasks}] Downloading: {display_name}")
             
             try:
-                with yt_dlp.YoutubeDL(dl_opts) as ydl: 
-                    ydl.download([url])
-                
-                # --- 5. UPDATE HISTORY (Immediate Save) ---
-                if vid_id:
-                    try:
+                with yt_dlp.YoutubeDL(base_opts) as ydl: 
+                    info_dict = ydl.extract_info(dl_url, download=True)
+                    actual_info = info_dict.get('entries', [info_dict])[0] if 'entries' in info_dict else info_dict
+                    vid_id = actual_info.get('id')
+                    
+                    if auto_check and vid_id:
                         with open(history_file, 'a', encoding='utf-8') as f:
                             f.write(f"{vid_id}\n")
-                        downloaded_ids.add(vid_id) # Update memory set too
-                    except: pass
 
+                    # --- FILE PATH CAPTURE ---
+                    target_file = None
+                    if 'requested_downloads' in actual_info:
+                        target_file = actual_info['requested_downloads'][0].get('filepath')
+                    
+                    if not target_file:
+                        predicted_name = ydl.prepare_filename(actual_info)
+                        if fmt == "Mp3":
+                            base_name, _ = os.path.splitext(predicted_name)
+                            target_file = base_name + ".mp3"
+                        else:
+                            target_file = predicted_name
+
+                    if target_file and os.path.exists(target_file):
+                        newly_downloaded_paths.append(target_file)
+                    else:
+                        log_message("Warning: Could not locate file on disk for tagging.")
             except Exception as e:
-                log_message(f"Skipping {title}: {str(e)}")
+                log_message(f"Download Error: {str(e)[:50]}")
 
-        # --- 6. METADATA ---
-        if use_metadata and fmt == "Mp3":
-            log_message("--------------------------------------------------\nStarting Metadata Scan...")
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            meta_folder = os.path.join(path, "metadata")
-            files_to_scan = []
-            
-            for f in os.listdir(path):
-                if f.endswith(".mp3"):
-                    # Only scan if JSON doesn't exist yet (prevents re-tagging renamed files)
-                    base = os.path.splitext(f)[0]
-                    json_p = os.path.join(meta_folder, f"{base}.json")
-                    if not os.path.exists(json_p):
-                        files_to_scan.append(os.path.join(path, f))
-
-            if files_to_scan:
-                count = len(files_to_scan)
-                for idx, mp3 in enumerate(files_to_scan):
-                    if should_cancel: break
-                    log_message(f"Metadata [{idx+1}/{count}]...")
-                    loop.run_until_complete(process_metadata(mp3, path))
+        # --- 5. METADATA ---
+        if use_metadata and fmt == "Mp3" and not should_cancel:
+            if newly_downloaded_paths:
+                log_message("-" * 40 + "\nStarting Metadata Scan...")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    for idx, mp3_path in enumerate(newly_downloaded_paths):
+                        if should_cancel: break
+                        
+                        clean_name = os.path.splitext(os.path.basename(mp3_path))[0]
+                        log_message(f"[{idx+1}/{len(newly_downloaded_paths)}] Tagging: {clean_name}...")
+                        
+                        loop.run_until_complete(process_metadata(mp3_path, path))
+                finally:
+                    loop.close()
             else:
                 log_message("No new files to tag.")
 
-            loop.close()
-
-        if should_cancel:
-            log_message("Stopped.")
-        else:
-            log_message("--------------------------------------------------\nAll Tasks Finished.")
-            update_progress(1.0)
+        log_message("-" * 40 + "\nFinished.")
+        app.after(0, lambda: progressbar.set(1.0 if not should_cancel else 0))
 
     except Exception as e:
-        log_message(f"Status: {str(e)}")
-
+        log_message(f"Fatal Error: {str(e)}")
     finally:
         is_downloading = False
         should_cancel = False
