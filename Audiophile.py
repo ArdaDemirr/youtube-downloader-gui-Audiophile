@@ -30,7 +30,7 @@ app = customtkinter.CTk()
 app.geometry("500x500")
 app.minsize(500, 500)
 app.maxsize(500,800)
-app.title("Audiophile V2.0")
+app.title("Audiophile V2.1")
 
 try:
     iconPath = resource_path('icon.ico')
