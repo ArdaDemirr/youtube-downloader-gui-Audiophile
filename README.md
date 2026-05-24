@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icon_title.ico" width="80" alt="Audiophile Icon"/>
+<img src="icon.ico" width="80" alt="Audiophile Icon"/>
 
 # Audiophile
 
