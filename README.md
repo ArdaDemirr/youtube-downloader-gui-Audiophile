@@ -197,3 +197,7 @@ This project is intended for educational and personal use only. Please respect c
 [GitHub @ArdaDemirr](https://github.com/ArdaDemirr)
 
 ---
+
+<img width="622" height="666" alt="dark" src="https://github.com/user-attachments/assets/20af9d0a-7a6d-4b93-b572-e749390f7eaa" />
+
+<img width="625" height="665" alt="light" src="https://github.com/user-attachments/assets/b9ff0ae6-9e24-4449-9638-590d44b9e4f2" />
