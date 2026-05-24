@@ -1,88 +1,199 @@
-# audiophile
+<div align="center">
 
-🎵 Audiophile
-The Intelligent YouTube Downloader & Tagger
+<img src="icon_title.ico" width="80" alt="Audiophile Icon"/>
 
-Audiophile is a modern, high-performance desktop application built with Python. Unlike standard downloaders, Audiophile focuses on music quality and organization. It doesn't just download files; it listens to them (via Shazam), identifies the official track details, and embeds studio-quality metadata directly into your MP3s.
+# Audiophile
 
-✨ Key Features
-🎧 Intelligent Metadata Tagging: Uses ShazamIO to audio-fingerprint every download. It automatically fixes:
+### The YouTube Downloader & Tagger
 
-Official Song Titles (Removing "Official Video", "Lyrics", etc.)
+![Version](https://img.shields.io/badge/version-v2.1-blue?style=flat-square)
+![Python](https://img.shields.io/badge/python-3.10%2B-yellow?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Build](https://img.shields.io/badge/build-May%202026-orange?style=flat-square)
 
-Artist, Album, & Year
+</div>
 
-Genre & Record Label
+---
 
-High-Res Cover Art (Embedded into the file)
+## What is Audiophile?
 
-📂 Clean Organization: Automatically renames files to a clean Artist - Title.mp3 format.
+Audiophile downloads your audio, audio-fingerprints it through Shazam, and embeds the official studio metadata — title, artist, album, year, genre, record label, and high-resolution cover art — directly into the file. The result is a clean, properly tagged MP3 that looks native in any music player.
 
-🚀 Smart History System: Tracks downloads by Video ID, not filename. You can rename or move your files, and Audiophile will still know you've already downloaded them (preventing duplicates).
+---
 
-⚡ Speed Boost: Uses concurrent fragment downloading to maximize bandwidth.
+## Features
 
-playlist Support: Download full playlists or select specific intervals (e.g., Songs 10-20).
+### Shazam-Powered Auto-Tagging
 
-🛑 Queue Management: Cancel downloads gracefully at any time.
+Every downloaded track is identified via ShazamIO audio fingerprinting. Audiophile automatically embeds:
 
-🛠️ Installation
+- **Clean title** — strips "Official Video", "Lyrics", "(ft. ...)", etc.
+- **Artist, Album & Year**
+- **Genre & Record Label**
+- **ISRC** — the unique international song identifier
+- **Shazam link** — embedded as a web URL tag in the file
+- **High-resolution cover art** — fetched and embedded directly into the MP3
 
-1. Prerequisites
-   You need Python installed. You also need FFmpeg for media conversion.
+### Smart File Organization
 
-2. Clone the Repository
-   Bash
-   git clone https://github.com/ArdaDemirr/youtube-downloader-gui-Audiophile.git
-   cd Audiophile
-4. Install Dependencies
-   Bash
-   pip install -r requirements.txt
-5. Install FFmpeg (Important!)
-   Because FFmpeg is too large to host on GitHub, you must add it manually:
+Files are automatically renamed to `Artist - Title.mp3` format. The raw Shazam JSON is saved alongside in a `metadata/` subfolder, also renamed to match.
 
-Download ffmpeg-release-essentials.zip from gyan.dev.
+### Smart History (Duplicate Prevention)
 
-Extract the zip file.
+History is tracked by **YouTube Video ID**, not filename. You can rename, move, or reorganize your files — Audiophile still knows you've downloaded them. History is written per output folder in `download_history.txt`.
 
-Copy ffmpeg.exe and ffprobe.exe (found in the bin folder).
+### Concurrent Fragment Downloading
 
-Paste them into the main Audiophile folder (next to Audiophile.py).
+Uses 8 parallel fragment downloads with 10MB chunk sizing to maximize your bandwidth, not just a single stream.
 
-🚀 Usage
-Run the application:
+### Full Playlist Support
 
-Bash
+Download entire playlists or use interval selection to grab a specific range (e.g., songs 5–20 from a playlist).
+
+### YouTube Search
+
+No URL? Just type a search term. Audiophile will find and download the top result directly.
+
+### Graceful Queue Management
+
+The Download button becomes a **Stop Queue** button mid-download. Cancellation waits for the current file to finish cleanly — no corrupted files.
+
+### Light & Dark Mode
+
+Full theme support. Switch between modes live with a single button click.
+
+---
+
+## Installation
+
+### Option A — Pre-built Executable (Recommended)
+
+No Python or dependencies required. Just download and run.
+
+1. Go to [**Releases**](https://github.com/ArdaDemirr/youtube-downloader-gui-Audiophile/releases)
+2. Download `Audiophile.exe` from the latest release
+3. Run it — that's it
+
+> **Note:** Windows Defender or SmartScreen may flag the `.exe` as unknown on first run. This is expected for unsigned executables built with PyInstaller. Click **"More info → Run anyway"** to proceed.
+
+---
+
+### Option B — Run from Source
+
+If you want to run or modify the Python source code directly.
+
+#### 1. Prerequisites
+
+- Python 3.10 or newer
+- FFmpeg (required for source; **already bundled in the `.exe` release**)
+
+#### 2. Clone the Repository
+
+```bash
+git clone https://github.com/ArdaDemirr/youtube-downloader-gui-Audiophile.git
+cd youtube-downloader-gui-Audiophile
+```
+
+#### 3. Install Python Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 4. Install FFmpeg
+
+FFmpeg is required when running from source. It is not included in the repository due to its size.
+
+1. Download `ffmpeg-release-essentials.zip` from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
+2. Extract the archive
+3. Copy `ffmpeg.exe` and `ffprobe.exe` from the `bin/` folder
+4. Paste them into the root project folder (next to `Audiophile.py`)
+
+#### 5. Run
+
+```bash
 python Audiophile.py
-Paste a Link (YouTube Video/Playlist) OR type a Search Term.
+```
 
-Select Format (MP3 for audio, MP4 for video).
+---
 
-(Optional) Click ▼ Advanced:
+## Usage
 
-Metadata: Turn on to auto-tag MP3s with official info and cover art.
+1. **Paste a link or type a search term** — YouTube video URL, playlist URL, or just keywords
+2. **Select format** — MP3 for audio, MP4 for video
+3. **Expand ▼ Advanced** (optional):
 
-Autocheck: Turn on to skip songs you have downloaded before.
+| Option        | What it does                                                         |
+| ------------- | -------------------------------------------------------------------- |
+| **metadata**  | Enables Shazam fingerprinting, full tag embedding, and file renaming |
+| **autocheck** | Skips tracks already recorded in your download history               |
+| **interval**  | Sets a start/end range for playlist downloads                        |
 
-Interval: Select a specific range of a playlist.
+4. **Hit Download** — it becomes a **Stop Queue** button while active
 
-Hit Download.
+---
 
-🏗️ Built With
-CustomTkinter: Modern UI library.
+## Output Structure
 
-yt-dlp: The engine behind the downloads.
+```
+Your Output Folder/
+├── Artist - Title.mp3          ← Renamed, fully tagged file
+├── Artist - Title2.mp3
+├── download_history.txt        ← Video IDs (for autocheck)
+└── metadata/
+    ├── Artist - Title.json     ← Raw Shazam response
+    └── Artist - Title2.json
+```
 
-ShazamIO: Reverse audio engineering for metadata.
+---
 
-Mutagen: Industry-standard ID3 tagging.
+## Tech Stack
 
-⚠️ Disclaimer
-This project is for educational purposes only. Please respect copyright laws and YouTube's Terms of Service. Do not download copyrighted content without permission.
+| Library                                                         | Role                            |
+| --------------------------------------------------------------- | ------------------------------- |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp)                      | Download engine                 |
+| [ShazamIO](https://github.com/dotX12/ShazamIO)                  | Audio fingerprinting & metadata |
+| [Mutagen](https://github.com/quodlibet/mutagen)                 | ID3 tag writing (MP3/ID3v2)     |
+| [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) | Modern GUI framework            |
+| [Requests](https://docs.python-requests.org/)                   | Cover art fetching              |
+| [FFmpeg](https://ffmpeg.org/)                                   | Audio conversion (source only)  |
 
-Author: Arda Demir Build: V2.0 (Feb 2026)
+---
 
-<img width="622" height="666" alt="dark" src="https://github.com/user-attachments/assets/20af9d0a-7a6d-4b93-b572-e749390f7eaa" />
+## Changelog
 
-<img width="625" height="665" alt="light" src="https://github.com/user-attachments/assets/b9ff0ae6-9e24-4449-9638-590d44b9e4f2" />
+### v2.1 — May 2026
 
+- Redesigned control bar: Advanced options now collapse/expand in a unified panel
+- ISRC tag embedding (`TSRC`) added to metadata pipeline
+- Shazam URL embedded as `WXXX` web link tag
+- Raw Shazam JSON automatically renamed to match the final MP3 filename
+- YouTube search support — paste a search term instead of a URL
+- Stop Queue button replaces Download mid-download; cancellation waits for current file to finish cleanly
+- Concurrent fragment downloads increased to 8 with 10MB chunk sizing
+- Window size locked to 500×500 min / 500×800 max for consistent layout
+- Build: `24/05/2026`
+
+### v2.0 — Feb 2026
+
+- Initial public release
+- Shazam metadata integration (title, artist, album, genre, cover art)
+- Smart history tracking by YouTube Video ID
+- Playlist interval selection
+- Light / Dark theme toggle
+
+---
+
+## Disclaimer
+
+This project is intended for educational and personal use only. Please respect copyright laws and [YouTube's Terms of Service](https://www.youtube.com/t/terms). Do not download content you do not have the right to download.
+
+---
+
+## Author
+
+**Arda Demir**  
+[GitHub @ArdaDemirr](https://github.com/ArdaDemirr)
+
+---
